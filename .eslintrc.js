@@ -25,6 +25,7 @@ module.exports = {
         'no-debugger': process.env.NODE_ENV === 'production' ? 2 : 0,
         // 新文件末尾是否有空行
         'eol-last': 0,
-        'space-before-function-paren': 0
+        'space-before-function-paren': 0,
+        'indent': 0
     }
 }
