@@ -1,12 +1,12 @@
 <template>
     <div class="recommend">
-      <scroll class="recommend-content" :data="discList">
+      <scroll ref="scroll" class="recommend-content" :data="discList">
         <div>
           <div class="slider-wrapper" v-if="recommends.length > 0">
             <slider>
               <div v-for="(item, index) in recommends" :key="index">
                 <a :href="item.linkUrl">
-                  <img :src="item.picUrl" alt="slider">
+                  <img @load="loadImage" :src="item.picUrl" alt="slider">
                 </a>
             </div>
             </slider>
@@ -44,8 +44,14 @@
           }
       },
       created () {
-          this._getRecommend()
-          this._getDiscList()
+        /*
+          测试异步数据,并且不加onload监听图片时,scroll高度不正常
+          setTimeout(() => {
+            this._getRecommend()
+          }, 2000)
+        */
+        this._getRecommend()
+        this._getDiscList()
       },
       methods: {
           _getRecommend () {
@@ -61,6 +67,15 @@
                 this.discList = res.data.list
               }
             })
+          },
+          // recommends数据是异步的，不清楚discList和recommends哪个先后,并且recommends的图片高度是自适应的，不可以给定高度
+          // recommends获取完，image再get请求读取,所以加一个onload事件，确保图片加载完后,scroll.refresh保证滚动的高度
+          loadImage () {
+            // 这个flag,为了只执行一次这refresh
+            if (!this.checkLoadImage) {
+              this.$refs.scroll.refresh()
+              this.checkLoadImage = true
+            }
           }
       },
       components: {

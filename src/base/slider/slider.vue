@@ -35,6 +35,8 @@ export default {
     }
   },
   mounted () {
+    // 保证dom渲染完成,为什么设置20毫秒,浏览器刷新机制是17毫秒(推荐)
+    // 也可以用this.$nextTick
     setTimeout(() => {
       this._setSlideWidth()
       this._initDots()
