@@ -1,12 +1,13 @@
 <template>
   <transition name="slide">
-    <music-list></music-list>
+    <music-list :songs="songs" :title="title" :bgIamge="bgIamge"></music-list>
   </transition>
 </template>
 
 <script type="text/ecmascript-6">
   import MusicList from 'components/music-list/music-list'
   import { getSingerDetail } from 'api/singer'
+  import { creatSong } from 'common/js/song'
   import { ERR_OK } from 'api/config'
   import { mapGetters } from 'vuex'
 
@@ -21,14 +22,36 @@
     },
     methods: {
       _getSingerDetail() {
+        if (!this.singer.id) {
+          this.$router.push({
+            path: '/singer'
+          })
+          return
+        }
         getSingerDetail(this.singer.id).then(res => {
           if (res.code === ERR_OK) {
-            console.log(res.data)
+            this.songs = this._normalizeSinger(res.data.list)
           }
         })
+      },
+      _normalizeSinger(list) {
+        let ret = []
+        list.forEach((item, i) => {
+          let { musicData } = item
+          if (musicData.songid && musicData.albummid) {
+            ret.push(creatSong(musicData))
+          }
+        })
+        return ret
       }
     },
     computed: {
+      title () {
+        return this.singer.name
+      },
+      bgIamge() {
+        return this.singer.avatar
+      },
       ...mapGetters([
         'singer'
       ])
