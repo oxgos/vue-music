@@ -43,12 +43,14 @@ import { getData } from 'common/js/dom'
 import Scroll from 'base/scroll/scroll'
 
 const ANCHOR_HEIGHT = 18
+const FIXED_TITLE_HEIGHT = 30
 
 export default {
   data () {
     return {
       scrollY: -1,
-      currentIndex: 0
+      currentIndex: 0,
+      diff: -1
     }
   },
   created () {
@@ -96,6 +98,13 @@ export default {
     },
     scroll (pos) {
       this.scrollY = pos.y
+      /* 自己理解写的头部上推逻辑
+      if (this.listHeight[this.currentIndex + 1] - (-pos.y) < FIXED_TITLE_HEIGHT) {
+        let move = FIXED_TITLE_HEIGHT - (this.listHeight[this.currentIndex + 1] - (-pos.y))
+        this.$refs.fixed.style.transform = `translate3d(0, ${-move}px, 0)`
+      } else {
+        this.$refs.fixed.style.transform = `translate3d(0, 0, 0)`
+      } */
     },
     _calculateHeight () {
       this.listHeight = []
@@ -140,12 +149,20 @@ export default {
         let h2 = listHeight[i + 1]
         if ((-newY) >= h1 && (-newY) < h2) {
           this.currentIndex = i
+          // 计算scroll滚动与每个title对应高度的差
+          this.diff = h2 + newY
           return
         }
       }
-
       // 当滚动到最底部时,且-newY大于最后一个元素上限
       this.currentIndex = listHeight.length - 2
+    },
+    diff (newVal) {
+      let fixtop = (newVal > 0 && newVal < FIXED_TITLE_HEIGHT) ? (newVal - FIXED_TITLE_HEIGHT) : 0
+      if (this.fixtop === fixtop) {
+        return
+      }
+      this.$refs.fixed.style.transform = `translate3d(0, ${fixtop}px, 0)`
     }
   },
   components: {
