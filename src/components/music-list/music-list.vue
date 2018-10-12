@@ -23,7 +23,7 @@
       ref="list"
     >
       <div class="song-list-wrapper">
-        <song-list :songs="songs"></song-list>
+        <song-list @selectSong="selectItem" :songs="songs"></song-list>
       </div>
       <div v-show="!songs.length" class="loading-container">
         <loading></loading>
@@ -33,6 +33,7 @@
 </template>
 
 <script type="text/ecmascript-6">
+import { mapActions } from 'vuex'
 import Scroll from 'base/scroll/scroll'
 import SongList from 'base/song-list/song-list'
 import Loading from 'base/loading/loading'
@@ -78,6 +79,14 @@ export default {
     }
   },
   methods: {
+    // 监听song-list的selectSong事件(当用户点击时触发并接受参数)
+    selectItem(song, index) {
+      this.selectPlay({
+        list: this.songs,
+        index: index
+      })
+    },
+    // 返回上一页
     back () {
       this.$router.push({
         path: '/singer'
@@ -85,7 +94,10 @@ export default {
     },
     scroll(pos) {
      this.scrollY = pos.y
-    }
+    },
+    ...mapActions([
+      'selectPlay'
+    ])
   },
   components: {
     Scroll,
