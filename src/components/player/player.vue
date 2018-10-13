@@ -31,14 +31,14 @@
                     <div class="icon i-left">
                         <i class="icon-sequence"></i>
                     </div>
-                    <div class="icon i-left">
-                        <i class="icon-prev"></i>
+                    <div class="icon i-left" :class="disableCls">
+                        <i class="icon-prev" @click="prevSong"></i>
                     </div>
-                    <div class="icon i-center">
+                    <div class="icon i-center" :class="disableCls">
                         <i :class="playIcon" @click="togglePlaying"></i>
                     </div>
-                    <div class="icon i-right">
-                        <i class="icon-next"></i>
+                    <div class="icon i-right" :class="disableCls">
+                        <i class="icon-next" @click="nextSong"></i>
                     </div>
                     <div class="icon i-right">
                         <i class="icon icon-not-favorite"></i>
@@ -64,7 +64,8 @@
             </div>
         </div>
       </transition>
-      <audio :src="currentSong.url" ref="audio"></audio>
+      <!-- canplay是在歌曲已经加载完毕后触发, error在歌曲请求错误或者网络不通时触发 -->
+      <audio :src="currentSong.url" ref="audio" @canplay="ready" @error="error"></audio>
   </div>
 </template>
 
@@ -76,6 +77,11 @@ import { mapGetters, mapMutations } from 'vuex'
 const transform = prefixStyle('transform')
 
 export default {
+  data() {
+    return {
+      songReady: false
+    }
+  },
   methods: {
     // 变为全屏播放器
     open() {
@@ -87,7 +93,49 @@ export default {
     },
     // 改变播放状态
     togglePlaying() {
+      if (!this.songReady) {
+        return
+      }
       this.setPlayingState(!this.playing)
+    },
+    // 下一首歌
+    nextSong() {
+      // 如果歌曲没加载完毕,不能触发此按钮,避免用户切换歌曲过快
+      if (!this.songReady) {
+        return
+      }
+      let index = this.currentIndex + 1
+      if (index === this.playlist.length) {
+        index = 0
+      }
+      this.setCurrentIndex(index)
+      // 暂停后切换歌曲,歌曲播放了,但图标不对,所以先判断播放状态,更正播放状态
+      if (!this.playing) {
+        this.togglePlaying()
+      }
+      this.songReady = false
+    },
+    // 上一首歌
+    prevSong() {
+      if (!this.songReady) {
+        return
+      }
+      let index = this.currentIndex - 1
+      if (index === -1) {
+        index = this.playlist.length - 1
+      }
+      this.setCurrentIndex(index)
+      if (!this.playing) {
+        this.togglePlaying()
+      }
+      this.songReady = false
+    },
+    ready() {
+      this.songReady = true
+    },
+    error() {
+      // 歌曲请求错误,就不会触发canplay,要使按钮有效,songReady也要改为true
+      this.songReady = true
     },
     enter(el, done) {
       // 获取x,y移动距离和scale比例
@@ -162,12 +210,16 @@ export default {
     },
     ...mapMutations({
       setFullScreen: 'SET_FULL_SCREEN',
-      setPlayingState: 'SET_PLAYING_STATE'
+      setPlayingState: 'SET_PLAYING_STATE',
+      setCurrentIndex: 'SET_CURRENT_INDEX'
     })
   },
   computed: {
     cdCls() {
       return this.playing ? 'play' : 'play pause'
+    },
+    disableCls() {
+      return this.songReady ? '' : 'disable'
     },
     // 大播放器暂停开始按钮图标
     playIcon() {
@@ -181,7 +233,8 @@ export default {
       'fullScreen',
       'playlist',
       'currentSong',
-      'playing'
+      'playing',
+      'currentIndex'
       ])
   },
   watch: {
