@@ -27,6 +27,13 @@
                 </div>
             </div>
             <div class="bottom">
+                <div class="progress-wrapper">
+                  <span class="time time-l">{{ format(currentTime) }}</span>
+                  <div class="progress-bar-wrapper">
+                    <progress-bar :percent="percent"></progress-bar>
+                  </div>
+                  <span class="time time-r">{{ format(currentSong.duration) }}</span>
+                </div>
                 <div class="operators">
                     <div class="icon i-left">
                         <i class="icon-sequence"></i>
@@ -65,11 +72,12 @@
         </div>
       </transition>
       <!-- canplay是在歌曲已经加载完毕后触发, error在歌曲请求错误或者网络不通时触发 -->
-      <audio :src="currentSong.url" ref="audio" @canplay="ready" @error="error"></audio>
+      <audio :src="currentSong.url" ref="audio" @canplay="ready" @error="error" @timeupdate="updateTime"></audio>
   </div>
 </template>
 
 <script type="text/ecmascript-6">
+import ProgressBar from 'base/progress-bar/progress-bar'
 import animations from 'create-keyframe-animation'
 import { prefixStyle } from 'common/js/dom'
 import { mapGetters, mapMutations } from 'vuex'
@@ -79,7 +87,8 @@ const transform = prefixStyle('transform')
 export default {
   data() {
     return {
-      songReady: false
+      songReady: false,
+      currentTime: 0
     }
   },
   methods: {
@@ -136,6 +145,30 @@ export default {
     error() {
       // 歌曲请求错误,就不会触发canplay,要使按钮有效,songReady也要改为true
       this.songReady = true
+    },
+    // 播放时间
+    updateTime(e) {
+      // 当前播放时间e.target.currentTime,单位为秒
+      this.currentTime = e.target.currentTime
+    },
+    // 格式化播放时间
+    format(interval) {
+      // 向下取整数, 相当于Math.floor
+      interval = interval | 0
+      // 变为分钟数
+      const min = interval / 60 | 0
+      // 变为秒数
+      const sec = this._pad(interval % 60)
+      return `${min}:${sec}`
+    },
+    // 补零, n为补完零后多少位数
+    _pad(num, n = 2) {
+      let len = num.toString().length
+      while (len < n) {
+        num = '0' + num
+        len++
+      }
+      return num
     },
     enter(el, done) {
       // 获取x,y移动距离和scale比例
@@ -215,6 +248,10 @@ export default {
     })
   },
   computed: {
+    // 计算进度条百分比
+    percent() {
+      return this.currentTime / this.currentSong.duration
+    },
     cdCls() {
       return this.playing ? 'play' : 'play pause'
     },
@@ -236,6 +273,9 @@ export default {
       'playing',
       'currentIndex'
       ])
+  },
+  components: {
+    ProgressBar
   },
   watch: {
     currentSong () {
