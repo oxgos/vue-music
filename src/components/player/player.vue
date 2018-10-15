@@ -30,7 +30,7 @@
                 <div class="progress-wrapper">
                   <span class="time time-l">{{ format(currentTime) }}</span>
                   <div class="progress-bar-wrapper">
-                    <progress-bar :percent="percent"></progress-bar>
+                    <progress-bar :percent="percent" @changePercent="changePercent"></progress-bar>
                   </div>
                   <span class="time time-r">{{ format(currentSong.duration) }}</span>
                 </div>
@@ -64,20 +64,23 @@
                 <p class="desc" v-html="currentSong.singer"></p>
             </div>
             <div class="control">
-              <i :class="playMiniIcon" @click.stop.prevent="togglePlaying"></i>
+              <progress-circle :radius="radius" :percent="percent">
+                <i :class="playMiniIcon" class="icon-mini" @click.stop.prevent="togglePlaying"></i>
+              </progress-circle>
             </div>
             <div class="control">
                 <i class="icon-playlist"></i>
             </div>
         </div>
       </transition>
-      <!-- canplay是在歌曲已经加载完毕后触发, error在歌曲请求错误或者网络不通时触发 -->
+      <!-- canplay是在歌曲已经加载完毕后触发, error在歌曲请求错误或者网络不通时触发, timeupdate监听歌曲播放时间 -->
       <audio :src="currentSong.url" ref="audio" @canplay="ready" @error="error" @timeupdate="updateTime"></audio>
   </div>
 </template>
 
 <script type="text/ecmascript-6">
 import ProgressBar from 'base/progress-bar/progress-bar'
+import ProgressCircle from 'base/progress-circle/progress-circle'
 import animations from 'create-keyframe-animation'
 import { prefixStyle } from 'common/js/dom'
 import { mapGetters, mapMutations } from 'vuex'
@@ -88,7 +91,8 @@ export default {
   data() {
     return {
       songReady: false,
-      currentTime: 0
+      currentTime: 0,
+      radius: 32
     }
   },
   methods: {
@@ -150,6 +154,14 @@ export default {
     updateTime(e) {
       // 当前播放时间e.target.currentTime,单位为秒
       this.currentTime = e.target.currentTime
+    },
+    // progressBar派发的事件，监听touch事件改变的进度
+    changePercent(percent) {
+      this.$refs.audio.currentTime = percent * this.currentSong.duration
+      // 暂停时，拖动进度条后，重新播放歌曲
+      if (!this.playing) {
+        this.togglePlaying()
+      }
     },
     // 格式化播放时间
     format(interval) {
@@ -275,7 +287,8 @@ export default {
       ])
   },
   components: {
-    ProgressBar
+    ProgressBar,
+    ProgressCircle
   },
   watch: {
     currentSong () {
