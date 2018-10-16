@@ -36,7 +36,7 @@
                 </div>
                 <div class="operators">
                     <div class="icon i-left">
-                        <i class="icon-sequence"></i>
+                        <i :class="modeIcon" @click="changeMode"></i>
                     </div>
                     <div class="icon i-left" :class="disableCls">
                         <i class="icon-prev" @click="prevSong"></i>
@@ -74,7 +74,14 @@
         </div>
       </transition>
       <!-- canplay是在歌曲已经加载完毕后触发, error在歌曲请求错误或者网络不通时触发, timeupdate监听歌曲播放时间 -->
-      <audio :src="currentSong.url" ref="audio" @canplay="ready" @error="error" @timeupdate="updateTime"></audio>
+      <audio :src="currentSong.url"end
+             ref="audio"
+             @canplay="ready"
+             @error="error"
+             @timeupdate="updateTime"
+             @ended="end"
+      >
+      </audio>
   </div>
 </template>
 
@@ -83,6 +90,8 @@ import ProgressBar from 'base/progress-bar/progress-bar'
 import ProgressCircle from 'base/progress-circle/progress-circle'
 import animations from 'create-keyframe-animation'
 import { prefixStyle } from 'common/js/dom'
+import { playMode } from 'common/js/config'
+import { shuffle } from 'common/js/util'
 import { mapGetters, mapMutations } from 'vuex'
 
 const transform = prefixStyle('transform')
@@ -110,6 +119,26 @@ export default {
         return
       }
       this.setPlayingState(!this.playing)
+    },
+    // 改变播放模式
+    changeMode() {
+      const Mode = (this.mode + 1) % 3
+      this.setPlayMode(Mode)
+      let newList = null
+      if (Mode === playMode.random) {
+        newList = shuffle(this.playlist)
+      } else {
+        newList = this.sequenceList
+      }
+      this.resetCurrentIndex(newList)
+      this.setPlay(newList)
+    },
+    // 因为random模式重新排序了，要使现在播放的歌曲不变，需找回当前歌曲在现在列表中的index
+    resetCurrentIndex(list) {
+      let index = list.findIndex((item) => {
+        return this.currentSong.id === item.id
+      })
+      this.setCurrentIndex(index)
     },
     // 下一首歌
     nextSong() {
@@ -154,6 +183,17 @@ export default {
     updateTime(e) {
       // 当前播放时间e.target.currentTime,单位为秒
       this.currentTime = e.target.currentTime
+    },
+    // 歌曲播放结束时
+    end() {
+      // 单曲循环
+      if (this.mode === playMode.loop) {
+        // 播放时间更新为零即可
+        this.$refs.audio.currentTime = 0
+        this.$refs.audio.play()
+      } else {
+        this.nextSong()
+      }
     },
     // progressBar派发的事件，监听touch事件改变的进度
     changePercent(percent) {
@@ -256,7 +296,9 @@ export default {
     ...mapMutations({
       setFullScreen: 'SET_FULL_SCREEN',
       setPlayingState: 'SET_PLAYING_STATE',
-      setCurrentIndex: 'SET_CURRENT_INDEX'
+      setCurrentIndex: 'SET_CURRENT_INDEX',
+      setPlayMode: 'SET_PLAY_MODE',
+      setPlay: 'SET_PLAYLIST'
     })
   },
   computed: {
@@ -278,12 +320,17 @@ export default {
     playMiniIcon() {
       return this.playing ? 'icon-pause-mini' : 'icon-play-mini'
     },
+    modeIcon() {
+      return this.mode === playMode.sequence ? 'icon-sequence' : this.mode === playMode.loop ? 'icon-loop' : 'icon-random'
+    },
     ...mapGetters([
       'fullScreen',
       'playlist',
+      'sequenceList',
       'currentSong',
       'playing',
-      'currentIndex'
+      'currentIndex',
+      'mode'
       ])
   },
   components: {
@@ -291,7 +338,10 @@ export default {
     ProgressCircle
   },
   watch: {
-    currentSong () {
+    currentSong (newSong, oldSong) {
+      if (newSong.id === oldSong.id) {
+        return
+      }
       this.$nextTick(() => {
         this.$refs.audio.play()
       })

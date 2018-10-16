@@ -14,9 +14,9 @@ export default class Song {
 export function creatSong(musicData, index) {
     let url
     if (index % 2 === 0) {
-        url = `http://isure.stream.qqmusic.qq.com/C400${musicData.songmid}.m4a?guid=8791617024&vkey=E5DF90D5810F8CED4BFA47CB01BAF4122ECA55EDB0C83C16A71F9916B521F5ED7EF892DCEB22A64000A836EF769F97A92A59D54BFF651E12&uin=0&fromtag=66`
+        url = `http://14.29.86.12/amobile.music.tc.qq.com/C400${musicData.songmid}.m4a?guid=6561550953&vkey=1D9E5D1C9D7C4BC1388508F127F9B01219380DF97FDDC59875DB858F3348C1839F2BCE7B5D0DEECABB81F2D4E74D734D94C462F53253DAB2&uin=0&fromtag=66`
     } else {
-        url = `http://124.172.114.18/amobile.music.tc.qq.com/C400${musicData.songmid}.m4a?guid=8791617024&vkey=13B5D4600885C3B163217A3272E1A3E349C170E3639EE33EB9CB2F2BF21BD17118AB77F51C1C091B47A55B45300FE9F43C100C2C3D30B146&uin=0&fromtag=66`
+        url = `http://isure.stream.qqmusic.qq.com/C400${musicData.songmid}.m4a?guid=6561550953&vkey=7C9D5B3723A4C807ED38972E13E72D5EC804A598027CFCBD80CCA7B2D6CF669755B8C4B8CF35ACC8DA227EE023705847BED8991ACA7D8F34&uin=0&fromtag=66`
     }
     return new Song({
         id: musicData.songid,
