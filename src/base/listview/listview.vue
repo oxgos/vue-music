@@ -96,6 +96,9 @@ export default {
       let anchorIdx = this.touch.anchorIdx + delta
       this._scrollTo(anchorIdx)
     },
+    refresh() {
+      this.$refs.listview.refresh()
+    },
     scroll (pos) {
       this.scrollY = pos.y
       /* 自己理解写的头部上推逻辑

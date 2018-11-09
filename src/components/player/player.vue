@@ -17,16 +17,36 @@
                 <h1 class="title" v-html="currentSong.name"></h1>
                 <h1 class="subtitle" v-html="currentSong.singer"></h1>
             </div>
-            <div class="middle">
-                <div class="middle-l">
+            <div class="middle"
+                 @touchstart="middleTouchStart"
+                 @touchmove="middleTouchMove"
+                 @touchend="middleTouchEnd"
+            >
+                <div class="middle-l" ref="middleL">
                     <div class="cd-wrapper" ref="cdWrapper">
                         <div class="cd" :class="cdCls">
                             <img class="image" :src="currentSong.image">
                         </div>
                     </div>
+                    <div class="playing-lyric-wrapper">
+                      <div class="playing-lyric">{{playingLyric}}</div>
+                    </div>
                 </div>
+                <Scroll class="middle-r" ref="lyricList" :data="currentLyric && currentLyric.lines">
+                  <div class="lyric-wrapper">
+                    <div v-if="currentLyric">
+                      <p ref="lyricLine" class="text" :class="{'current': currentLineNum === index}" v-for="(line, index) in currentLyric.lines" :key="index">
+                        {{line.txt}}
+                      </p>
+                    </div>
+                  </div>
+                </Scroll>
             </div>
             <div class="bottom">
+                <div class="dot-wrapper">
+                  <span class="dot" :class="{'active': currentShow === 'cd'}"></span>
+                  <span class="dot" :class="{'active': currentShow === 'lyric'}"></span>
+                </div>
                 <div class="progress-wrapper">
                   <span class="time time-l">{{ format(currentTime) }}</span>
                   <div class="progress-bar-wrapper">
@@ -74,7 +94,7 @@
         </div>
       </transition>
       <!-- canplay是在歌曲已经加载完毕后触发, error在歌曲请求错误或者网络不通时触发, timeupdate监听歌曲播放时间 -->
-      <audio :src="currentSong.url"end
+      <audio :src="currentSong.url"
              ref="audio"
              @canplay="ready"
              @error="error"
@@ -93,18 +113,83 @@ import { prefixStyle } from 'common/js/dom'
 import { playMode } from 'common/js/config'
 import { shuffle } from 'common/js/util'
 import { mapGetters, mapMutations } from 'vuex'
+import Lyric from 'lyric-parser'
+import Scroll from 'base/scroll/scroll'
 
 const transform = prefixStyle('transform')
+const transitionDuration = prefixStyle('transitionDuration')
 
 export default {
   data() {
     return {
       songReady: false,
       currentTime: 0,
-      radius: 32
+      radius: 32,
+      currentLyric: null,
+      currentLineNum: 0,
+      currentShow: 'cd',
+      playingLyric: ''
     }
   },
+  created() {
+    this.touch = {}
+  },
   methods: {
+    middleTouchStart(e) {
+      this.touch.initiated = true
+      const touch = e.touches[0]
+      this.touch.pageX = touch.pageX
+      this.touch.pageY = touch.pageY
+    },
+    middleTouchMove(e) {
+      if (!this.touch.initiated) {
+        return
+      }
+      const touch = e.touches[0]
+      const deltaX = touch.pageX - this.touch.pageX
+      const deltaY = touch.pageY - this.touch.pageY
+      if (Math.abs(deltaY) > Math.abs(deltaX)) {
+        return
+      }
+      // 元素的原先位置
+      const left = this.currentShow === 'cd' ? 0 : -window.innerWidth
+      // 原先位置 加上 手指移动距离才是最终的距离
+      const offsetWidth = Math.min(0, Math.max(-window.innerWidth, left + deltaX))
+      this.touch.percent = Math.abs(offsetWidth / window.innerWidth)
+      this.$refs.middleL.style.opacity = 1 - this.touch.percent
+      this.$refs.middleL.style[transitionDuration] = 0
+      this.$refs.lyricList.$el.style[transform] = `translate3d(${offsetWidth}px, 0, 0)`
+      this.$refs.lyricList.$el.style[transitionDuration] = 0
+    },
+    middleTouchEnd() {
+      this.touch.initiated = false
+      let offsetWidth
+      let opacity
+      if (this.currentShow === 'cd') {
+        if (this.touch.percent > 0.1) {
+          offsetWidth = -window.innerWidth
+          opacity = 0
+          this.currentShow = 'lyric'
+        } else {
+          offsetWidth = 0
+          opacity = 1
+        }
+      } else {
+        if (this.touch.percent < 0.9) {
+          offsetWidth = 0
+          opacity = 1
+          this.currentShow = 'cd'
+        } else {
+          offsetWidth = -window.innerWidth
+          opacity = 0
+        }
+      }
+      const time = 300
+      this.$refs.lyricList.$el.style[transform] = `translate3d(${offsetWidth}px, 0, 0)`
+      this.$refs.lyricList.$el.style[transitionDuration] = `${time}ms`
+      this.$refs.middleL.style.opacity = opacity
+      this.$refs.middleL.style[transitionDuration] = `${time}ms`
+    },
     // 变为全屏播放器
     open() {
       this.setFullScreen(true)
@@ -119,6 +204,10 @@ export default {
         return
       }
       this.setPlayingState(!this.playing)
+      if (this.currentLyric) {
+        // 歌曲暂停时,歌词也需暂停
+        this.currentLyric.togglePlay()
+      }
     },
     // 改变播放模式
     changeMode() {
@@ -146,14 +235,19 @@ export default {
       if (!this.songReady) {
         return
       }
-      let index = this.currentIndex + 1
-      if (index === this.playlist.length) {
-        index = 0
-      }
-      this.setCurrentIndex(index)
-      // 暂停后切换歌曲,歌曲播放了,但图标不对,所以先判断播放状态,更正播放状态
-      if (!this.playing) {
-        this.togglePlaying()
+      // 边界情况,当歌曲只有一首时
+      if (this.playlist.length === 1) {
+        this.loop()
+      } else {
+        let index = this.currentIndex + 1
+        if (index === this.playlist.length) {
+          index = 0
+        }
+        this.setCurrentIndex(index)
+        // 暂停后切换歌曲,歌曲播放了,但图标不对,所以先判断播放状态,更正播放状态
+        if (!this.playing) {
+          this.togglePlaying()
+        }
       }
       this.songReady = false
     },
@@ -162,13 +256,18 @@ export default {
       if (!this.songReady) {
         return
       }
-      let index = this.currentIndex - 1
-      if (index === -1) {
-        index = this.playlist.length - 1
-      }
-      this.setCurrentIndex(index)
-      if (!this.playing) {
-        this.togglePlaying()
+      // 边界情况,当歌曲只有一首时
+      if (this.playlist.length === 1) {
+        this.loop()
+      } else {
+        let index = this.currentIndex - 1
+        if (index === -1) {
+          index = this.playlist.length - 1
+        }
+        this.setCurrentIndex(index)
+        if (!this.playing) {
+          this.togglePlaying()
+        }
       }
       this.songReady = false
     },
@@ -188,20 +287,56 @@ export default {
     end() {
       // 单曲循环
       if (this.mode === playMode.loop) {
-        // 播放时间更新为零即可
-        this.$refs.audio.currentTime = 0
-        this.$refs.audio.play()
+        this.loop()
       } else {
         this.nextSong()
       }
     },
+    // 单曲循环
+    loop () {
+      // 播放时间更新为零即可
+      this.$refs.audio.currentTime = 0
+      this.$refs.audio.play()
+      if (this.currentLyric) {
+        // 歌词重新回到顶部
+        this.currentLyric.seek(0)
+      }
+    },
     // progressBar派发的事件，监听touch事件改变的进度
     changePercent(percent) {
-      this.$refs.audio.currentTime = percent * this.currentSong.duration
+      const currentTime = percent * this.currentSong.duration
+      this.$refs.audio.currentTime = currentTime
       // 暂停时，拖动进度条后，重新播放歌曲
       if (!this.playing) {
         this.togglePlaying()
       }
+      // 拖动进度条时,根据歌曲进度调整歌词进度
+      if (this.currentLyric) {
+        this.currentLyric.seek(currentTime * 1000)
+      }
+    },
+    getLyric() {
+      this.currentSong.getLyric().then((lyric) => {
+        this.currentLyric = new Lyric(lyric, this.handleLyric)
+        if (this.playing) {
+          this.currentLyric.play()
+        }
+      }).catch(() => {
+        this.currentLyric = null
+        this.playingLyric = ''
+        this.currentLineNum = 0
+      })
+    },
+    handleLyric({lineNum, txt}) {
+      this.currentLineNum = lineNum
+      if (lineNum > 5) {
+        // 保持歌词高亮在屏幕中间，所以减去5行
+        let lineEl = this.$refs.lyricLine[lineNum - 5]
+        this.$refs.lyricList.scrollToElement(lineEl, 1000)
+      } else {
+        this.$refs.lyricList.scrollToElement(0, 0, 1000)
+      }
+      this.playingLyric = txt
     },
     // 格式化播放时间
     format(interval) {
@@ -335,16 +470,27 @@ export default {
   },
   components: {
     ProgressBar,
-    ProgressCircle
+    ProgressCircle,
+    Scroll
   },
   watch: {
     currentSong (newSong, oldSong) {
       if (newSong.id === oldSong.id) {
         return
       }
-      this.$nextTick(() => {
+      // 先把当前的歌词停下来(里面有定时器),下面会重新getLyric赋一个新的lyric对象
+      if (this.currentLyric) {
+        this.currentLyric.stop()
+      }
+      // 如果手机浏览器后台切换至前台,保持可以正常播放,用setTimer延长播放时间
+      /* this.$nextTick(() => {
         this.$refs.audio.play()
-      })
+        this.getLyric()
+      }) */
+      setTimeout(() => {
+        this.$refs.audio.play()
+        this.getLyric()
+      }, 1000)
     },
     playing (newVal) {
       const audio = this.$refs.audio
