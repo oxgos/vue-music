@@ -33,7 +33,7 @@ export default class Song {
 }
 
 export function creatSong(musicData, index) {
-    let url = `http://dl.stream.qqmusic.qq.com/C400${musicData.songmid}.m4a?guid=6561550953&vkey=54712CA69F2B95AB2B5C7C9D8BA961D18EA7FD7C6216D90B609A0BB8CB424821FEC18A06BB66403D4390054808A28C428DCE569ED2FCCBA6&uin=0&fromtag=38`
+    let url = `http://dl.stream.qqmusic.qq.com/C400${musicData.songmid}.m4a?guid=6561550953&vkey=569B3122A835E7E298F4F1AA44CC9A5D066A4DAA0ED362AA9551B1908B723644D1046A374F98932748C46F2563FE6CB32346F06470F58ECF&uin=0&fromtag=38`
     return new Song({
         id: musicData.songid,
         mid: musicData.songmid,
